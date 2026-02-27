@@ -49,7 +49,10 @@ function openMenu() {
             </div>`);
 
             if (!member.disabled) {
-                row.on('click', () => {
+                // ADDED: 'touchend' and preventDefault() for mobile support
+                row.on('click touchend', (e) => {
+                    e.preventDefault(); 
+                    e.stopPropagation();
                     forceReply(member.name);
                 });
             }
@@ -114,7 +117,9 @@ jQuery(async () => {
     $('body').append(popoverMenu);
 
     // 3. Click events
-    $('#quick-force-reply-btn').on('click', (e) => {
+    // ADDED: 'touchend' and preventDefault() for mobile support
+    $('#quick-force-reply-btn').on('click touchend', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         if (popoverMenu.css('display') === 'flex') {
             popoverMenu.css('display', 'none');
@@ -123,7 +128,8 @@ jQuery(async () => {
         }
     });
 
-    $(document).on('click', (e) => {
+    // ADDED: 'touchend' for mobile support
+    $(document).on('click touchend', (e) => {
         if (!$(e.target).closest('#quick-force-reply-popover').length && !$(e.target).closest('#quick-force-reply-btn').length) {
             if (popoverMenu) popoverMenu.hide();
         }
