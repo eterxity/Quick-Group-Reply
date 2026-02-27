@@ -15,6 +15,10 @@
     color: var(--SmartThemeBodyColor);
     opacity: 0.7;
     transition: opacity 0.2s;
+    
+    /* THE FIX FOR THE WEIRD SPACING: */
+    flex: 0 0 auto; /* Stops the button from absorbing empty space */
+    order: 5; /* Slots it perfectly between the Wand and Persona icon */
 }
 
 /* Safety override: Forces perfect centering even if JS uses .show() */
