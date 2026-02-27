@@ -1,12 +1,9 @@
 {
-    "display_name": "Quick Persona",
-    "loading_order": 100,
-    "requires": [],
-    "optional": [],
-    "js": "index.js",
-    "css": "style.css",
-    "author": "Cohee1207",
+    "name": "quick-force-reply",
+    "display_name": "Quick Force Reply",
+    "description": "Adds a quick-access menu to force specific characters to reply in group chats.",
     "version": "1.0.0",
-    "homePage": "https://github.com/SillyTavern/Extension-QuickPersona",
-    "auto_update": true
+    "author": "Bucko",
+    "js": "index.js",
+    "css": "style.css"
 }

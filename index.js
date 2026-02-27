@@ -1,103 +1,143 @@
-import { animation_duration, eventSource, event_types, getThumbnailUrl } from '../../../../script.js';
-import { power_user } from '../../../power-user.js';
-import { getUserAvatar, getUserAvatars, setUserAvatar, user_avatar } from '../../../personas.js';
-import { Popper } from '../../../../lib.js';
-
-/** @type {Popper.Instance} */
-let popper = null;
-let isOpen = false;
-
-const supportsPersonaThumbnails = getThumbnailUrl('persona', 'test.png', true).includes('&t=');
-
-function addQuickPersonaButton() {
-    const quickPersonaButton = `
-    <div id="quickPersona" class="interactable" tabindex="0">
-        <img id="quickPersonaImg" src="/img/ai4.png" />
-        <div id="quickPersonaCaret" class="fa-fw fa-solid fa-caret-up"></div>
-    </div>`;
-    $('#leftSendForm').append(quickPersonaButton);
-    $('#quickPersona').on('click', () => {
-        toggleQuickPersonaSelector();
-    });
-}
-
 /**
- * Get the URL of the user avatar image.
- * @param {string} userAvatar The user avatar identifier
- * @returns {string} URL of the user avatar image
- */
-function getImageUrl(userAvatar) {
-    if (supportsPersonaThumbnails) {
-        return getThumbnailUrl('persona', userAvatar, true);
-    }
-    return `${getUserAvatar(userAvatar)}?t=${Date.now()}`;
-}
+ * Quick Force Reply
+ * Copyright (C) 2026 Bucko
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+*/
 
-async function toggleQuickPersonaSelector() {
-    if (isOpen) {
-        closeQuickPersonaSelector();
-        return;
-    }
-    await openQuickPersonaSelector();
-}
+let popoverMenu;
 
-async function openQuickPersonaSelector() {
-    isOpen = true;
-    const userAvatars = await getUserAvatars(false);
-    const quickPersonaList = $('<div id="quickPersonaMenu"><ul class="list-group"></ul></div>');
-    for (const userAvatar of userAvatars) {
-        const personaName = power_user.personas[userAvatar] || userAvatar;
-        const personaTitle = power_user.persona_descriptions[userAvatar]?.title || '';
-        const imgUrl = getImageUrl(userAvatar);
-        const imgTitle = personaTitle ? `${personaName} - ${personaTitle}` : personaName;
-        const isSelected = userAvatar === user_avatar;
-        const isDefault = userAvatar === power_user.default_persona;
-        const listItem = $('<li tabindex="0" class="list-group-item interactable"><img class="quickPersonaMenuImg"/></li>');
-        listItem.find('img').attr('src', imgUrl).attr('title', imgTitle).toggleClass('selected', isSelected).toggleClass('default', isDefault);
-        listItem.on('click', async () => {
-            closeQuickPersonaSelector();
-            await setUserAvatar(userAvatar);
-            changeQuickPersona();
+function getGroupMembers() {
+    const ctx = SillyTavern.getContext();
+    if (!ctx || !ctx.groupId || !ctx.groups) return [];
+
+    const group = ctx.groups.find(g => g.id === ctx.groupId);
+    if (!group || !group.members) return [];
+
+    const members = [];
+    for (const memberId of group.members) {
+        const charIndex = ctx.characters.findIndex(c => c.avatar === memberId);
+        if (charIndex === -1) continue;
+        const char = ctx.characters[charIndex];
+        members.push({
+            name: char.name || memberId,
+            avatarUrl: `/characters/${encodeURIComponent(memberId)}`,
+            disabled: group.disabled_members?.includes(memberId) || false,
         });
-        quickPersonaList.find('ul').append(listItem);
     }
-    quickPersonaList.hide();
-    $(document.body).append(quickPersonaList);
-    $('#quickPersonaCaret').toggleClass('fa-caret-up fa-caret-down');
-    $('#quickPersonaMenu').fadeIn(animation_duration);
-    popper = Popper.createPopper(document.getElementById('quickPersona'), document.getElementById('quickPersonaMenu'), {
-        placement: 'top-start',
+    return members;
+}
+
+function openMenu() {
+    const members = getGroupMembers();
+    
+    // Clear out old data
+    popoverMenu.empty();
+    popoverMenu.append('<div class="qfr-header">Force Reply</div>');
+
+    if (members.length === 0) {
+        popoverMenu.append('<div style="padding: 15px; text-align: center; opacity: 0.5;">No active group</div>');
+    } else {
+        members.forEach(member => {
+            const row = $(`<div class="qfr-item ${member.disabled ? 'disabled' : ''}">
+                <img class="qfr-avatar" src="${member.avatarUrl}" onerror="this.style.display='none'" />
+                <span class="qfr-name">${member.name}</span>
+                ${member.disabled ? '<span style="font-size: 0.7em; opacity: 0.5;">Muted</span>' : ''}
+            </div>`);
+
+            if (!member.disabled) {
+                row.on('click', () => {
+                    forceReply(member.name);
+                });
+            }
+            popoverMenu.append(row);
+        });
+    }
+
+    // --- DYNAMIC MOBILE-FRIENDLY POSITIONING ---
+    const btn = $('#quick-force-reply-btn')[0];
+    if (!btn) return; // Safety check in case the button isn't rendered yet
+    
+    const rect = btn.getBoundingClientRect(); // Get button's exact screen position
+    
+    // Calculate distance from the bottom of the screen, plus a 10px gap
+    const bottomPos = window.innerHeight - rect.top + 10;
+    
+    // Calculate Left position, keeping it within screen bounds on mobile
+    let leftPos = rect.left;
+    if (leftPos + 250 > window.innerWidth) { 
+        leftPos = window.innerWidth - 260; // Nudge left if it bleeds off the right edge
+    }
+    leftPos = Math.max(10, leftPos); // Nudge right if it bleeds off the left edge
+
+    popoverMenu.css({
+        bottom: bottomPos + 'px',
+        left: leftPos + 'px',
+        display: 'flex'
     });
-    popper.update();
 }
 
-function closeQuickPersonaSelector() {
-    isOpen = false;
-    $('#quickPersonaCaret').toggleClass('fa-caret-up fa-caret-down');
-    $('#quickPersonaMenu').fadeOut(animation_duration, () => {
-        $('#quickPersonaMenu').remove();
-    });
-    popper.destroy();
+function forceReply(characterName) {
+    popoverMenu.css('display', 'none');
+    const ctx = SillyTavern.getContext();
+    if (ctx && typeof ctx.executeSlashCommandsWithOptions === 'function') {
+        ctx.executeSlashCommandsWithOptions(`/trigger "${characterName}"`);
+    }
 }
 
-function changeQuickPersona() {
-    setTimeout(() => {
-        const personaName = power_user.personas[user_avatar] || user_avatar;
-        const personaTitle = power_user.persona_descriptions[user_avatar]?.title || '';
-        const imgUrl = getImageUrl(user_avatar);
-        const imgTitle = personaTitle ? `${personaName} - ${personaTitle}` : personaName;
-        $('#quickPersonaImg').attr('src', imgUrl).attr('title', imgTitle);
-    }, 100);
+function updateUIVisibility() {
+    const ctx = SillyTavern.getContext();
+    const isGroup = ctx && ctx.groupId;
+    
+    if (isGroup) {
+        $('#quick-force-reply-btn').show();
+    } else {
+        $('#quick-force-reply-btn').hide();
+        if (popoverMenu) popoverMenu.hide();
+    }
 }
 
-jQuery(() => {
-    addQuickPersonaButton();
-    eventSource.on(event_types.CHAT_CHANGED, changeQuickPersona);
-    eventSource.on(event_types.SETTINGS_UPDATED, changeQuickPersona);
-    $(document.body).on('click', (e) => {
-        if (isOpen && !e.target.closest('#quickPersonaMenu') && !e.target.closest('#quickPersona')) {
-            closeQuickPersonaSelector();
+jQuery(async () => {
+    // 1. Inject the button into the same area QuickPersona uses
+    const btnHtml = `
+    <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none; padding: 10px; opacity: 0.7; cursor: pointer;">
+        <i class="fa-solid fa-users" style="font-size: 1.2em;"></i>
+    </div>`;
+    
+    $('#leftSendForm').append(btnHtml);
+
+    // 2. Create the Popover container
+    popoverMenu = $('<div id="quick-force-reply-popover"></div>');
+    $('body').append(popoverMenu);
+
+    // 3. Click events
+    $('#quick-force-reply-btn').on('click', (e) => {
+        e.stopPropagation();
+        if (popoverMenu.css('display') === 'flex') {
+            popoverMenu.css('display', 'none');
+        } else {
+            openMenu();
         }
     });
-    changeQuickPersona();
+
+    $(document).on('click', (e) => {
+        if (!$(e.target).closest('#quick-force-reply-popover').length && !$(e.target).closest('#quick-force-reply-btn').length) {
+            if (popoverMenu) popoverMenu.hide();
+        }
+    });
+
+    $(document).on('keydown', (e) => {
+        if (e.key === 'Escape' && popoverMenu) popoverMenu.hide();
+    });
+
+    // 4. Hook into chat change events
+    const ctx = SillyTavern.getContext();
+    if (ctx && ctx.eventSource && ctx.eventTypes) {
+        ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, updateUIVisibility);
+    }
+    
+    setTimeout(updateUIVisibility, 1000); 
 });
