@@ -59,14 +59,16 @@ function openMenu() {
         });
     }
 
-    // --- YOUR ORIGINAL DYNAMIC POSITIONING MATH IS BACK ---
+    // --- DYNAMIC MOBILE-FRIENDLY POSITIONING ---
     const btn = $('#quick-force-reply-btn')[0];
     if (!btn) return; 
     
     const rect = btn.getBoundingClientRect(); 
     
+    // Calculate distance from the bottom of the screen, plus a 10px gap
     const bottomPos = window.innerHeight - rect.top + 10;
     
+    // Calculate Left position, keeping it within screen bounds on mobile
     let leftPos = rect.left;
     if (leftPos + 250 > window.innerWidth) { 
         leftPos = window.innerWidth - 260; 
@@ -78,10 +80,21 @@ function openMenu() {
         left: leftPos + 'px',
         display: 'flex'
     });
+
+    // THE JSX MOBILE FIX: Wait 0ms before listening for clicks outside the menu
+    setTimeout(() => {
+        $(document).on('click.qfr touchstart.qfr', function closeOnOutsideClick(e) {
+            if (!$(e.target).closest('#quick-force-reply-popover').length && !$(e.target).closest('#quick-force-reply-btn').length) {
+                popoverMenu.hide();
+                $(document).off('click.qfr touchstart.qfr', closeOnOutsideClick);
+            }
+        });
+    }, 0);
 }
 
 function forceReply(characterName) {
     popoverMenu.css('display', 'none');
+    $(document).off('click.qfr touchstart.qfr');
     const ctx = SillyTavern.getContext();
     if (ctx && typeof ctx.executeSlashCommandsWithOptions === 'function') {
         ctx.executeSlashCommandsWithOptions(`/trigger "${characterName}"`);
@@ -101,7 +114,7 @@ function updateUIVisibility() {
 }
 
 jQuery(async () => {
-    // MOBILE FIX: pointer-events: none stops the phone from misclicking the SVG icon
+    // 1. Inject the button into the exact same area QuickPersona uses
     const btnHtml = `
     <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none; padding: 10px; opacity: 0.7; cursor: pointer;">
         <i class="fa-solid fa-users" style="font-size: 1.2em; pointer-events: none;"></i>
@@ -109,29 +122,30 @@ jQuery(async () => {
     
     $('#leftSendForm').append(btnHtml);
 
+    // 2. Create the Popover container
     popoverMenu = $('<div id="quick-force-reply-popover"></div>');
     $('body').append(popoverMenu);
 
+    // 3. Main button click event
     $('#quick-force-reply-btn').on('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (popoverMenu.css('display') === 'flex') {
             popoverMenu.css('display', 'none');
+            $(document).off('click.qfr touchstart.qfr');
         } else {
             openMenu();
         }
     });
 
-    $(document).on('click', (e) => {
-        if (!$(e.target).closest('#quick-force-reply-popover').length && !$(e.target).closest('#quick-force-reply-btn').length) {
-            if (popoverMenu) popoverMenu.hide();
+    $(document).on('keydown', (e) => {
+        if (e.key === 'Escape' && popoverMenu) {
+            popoverMenu.hide();
+            $(document).off('click.qfr touchstart.qfr');
         }
     });
 
-    $(document).on('keydown', (e) => {
-        if (e.key === 'Escape' && popoverMenu) popoverMenu.hide();
-    });
-
+    // 4. Hook into chat change events
     const ctx = SillyTavern.getContext();
     if (ctx && ctx.eventSource && ctx.eventTypes) {
         ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, updateUIVisibility);
