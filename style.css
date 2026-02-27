@@ -4,6 +4,25 @@
  * Licensed under AGPL-3.0
  */
 
+/* Perfectly matches ST's native chat bar buttons */
+#quick-force-reply-btn {
+    width: var(--bottomFormBlockSize);
+    height: var(--bottomFormBlockSize);
+    align-items: center;
+    justify-content: center;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+#quick-force-reply-btn:hover {
+    opacity: 1;
+}
+
+#quick-force-reply-btn i {
+    font-size: calc(var(--bottomFormBlockSize) * 0.55);
+}
+
 #quick-force-reply-popover {
     /* NO POSITION OR MATH. Popper.js handles this natively! */
     background: var(--SmartThemeBlurTintColor, rgba(30, 30, 46, 0.9));
