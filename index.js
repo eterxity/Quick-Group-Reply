@@ -49,10 +49,7 @@ function openMenu() {
             </div>`);
 
             if (!member.disabled) {
-                // ADDED: 'touchend' and preventDefault() for mobile support
-                row.on('click touchend', (e) => {
-                    e.preventDefault(); 
-                    e.stopPropagation();
+                row.on('click', () => {
                     forceReply(member.name);
                 });
             }
@@ -62,19 +59,20 @@ function openMenu() {
 
     // --- DYNAMIC MOBILE-FRIENDLY POSITIONING ---
     const btn = $('#quick-force-reply-btn')[0];
-    if (!btn) return; // Safety check in case the button isn't rendered yet
+    if (!btn) return; 
     
-    const rect = btn.getBoundingClientRect(); // Get button's exact screen position
+    const rect = btn.getBoundingClientRect(); 
     
-    // Calculate distance from the bottom of the screen, plus a 10px gap
-    const bottomPos = window.innerHeight - rect.top + 10;
+    // THE FIX: visualViewport stops mobile keyboards from throwing the menu off-screen
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const bottomPos = vh - rect.top + 10;
     
-    // Calculate Left position, keeping it within screen bounds on mobile
     let leftPos = rect.left;
-    if (leftPos + 250 > window.innerWidth) { 
-        leftPos = window.innerWidth - 260; // Nudge left if it bleeds off the right edge
+    const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    if (leftPos + 250 > vw) { 
+        leftPos = vw - 260; 
     }
-    leftPos = Math.max(10, leftPos); // Nudge right if it bleeds off the left edge
+    leftPos = Math.max(10, leftPos); 
 
     popoverMenu.css({
         bottom: bottomPos + 'px',
@@ -104,12 +102,13 @@ function updateUIVisibility() {
 }
 
 jQuery(async () => {
-    // 1. Inject the button into the same area QuickPersona uses
+    // THE FIX: 'pointer-events: none;' added to the <i> tag below so mobile phones stop misclicking the icon!
     const btnHtml = `
     <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none; padding: 10px; opacity: 0.7; cursor: pointer;">
-        <i class="fa-solid fa-users" style="font-size: 1.2em;"></i>
+        <i class="fa-solid fa-users" style="font-size: 1.2em; pointer-events: none;"></i>
     </div>`;
     
+    // Injects into the exact same spot QuickPersona uses
     $('#leftSendForm').append(btnHtml);
 
     // 2. Create the Popover container
@@ -117,8 +116,7 @@ jQuery(async () => {
     $('body').append(popoverMenu);
 
     // 3. Click events
-    // ADDED: 'touchend' and preventDefault() for mobile support
-    $('#quick-force-reply-btn').on('click touchend', (e) => {
+    $('#quick-force-reply-btn').on('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (popoverMenu.css('display') === 'flex') {
@@ -128,8 +126,7 @@ jQuery(async () => {
         }
     });
 
-    // ADDED: 'touchend' for mobile support
-    $(document).on('click touchend', (e) => {
+    $(document).on('click', (e) => {
         if (!$(e.target).closest('#quick-force-reply-popover').length && !$(e.target).closest('#quick-force-reply-btn').length) {
             if (popoverMenu) popoverMenu.hide();
         }
