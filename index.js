@@ -49,7 +49,9 @@ function openMenu() {
             </div>`);
 
             if (!member.disabled) {
-                row.on('click', () => {
+                row.on('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     forceReply(member.name);
                 });
             }
@@ -57,20 +59,17 @@ function openMenu() {
         });
     }
 
-    // --- DYNAMIC MOBILE-FRIENDLY POSITIONING ---
+    // --- YOUR ORIGINAL DYNAMIC POSITIONING MATH IS BACK ---
     const btn = $('#quick-force-reply-btn')[0];
     if (!btn) return; 
     
     const rect = btn.getBoundingClientRect(); 
     
-    // THE FIX: visualViewport stops mobile keyboards from throwing the menu off-screen
-    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const bottomPos = vh - rect.top + 10;
+    const bottomPos = window.innerHeight - rect.top + 10;
     
     let leftPos = rect.left;
-    const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-    if (leftPos + 250 > vw) { 
-        leftPos = vw - 260; 
+    if (leftPos + 250 > window.innerWidth) { 
+        leftPos = window.innerWidth - 260; 
     }
     leftPos = Math.max(10, leftPos); 
 
@@ -102,20 +101,17 @@ function updateUIVisibility() {
 }
 
 jQuery(async () => {
-    // THE FIX: 'pointer-events: none;' added to the <i> tag below so mobile phones stop misclicking the icon!
+    // MOBILE FIX: pointer-events: none stops the phone from misclicking the SVG icon
     const btnHtml = `
     <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none; padding: 10px; opacity: 0.7; cursor: pointer;">
         <i class="fa-solid fa-users" style="font-size: 1.2em; pointer-events: none;"></i>
     </div>`;
     
-    // Injects into the exact same spot QuickPersona uses
     $('#leftSendForm').append(btnHtml);
 
-    // 2. Create the Popover container
     popoverMenu = $('<div id="quick-force-reply-popover"></div>');
     $('body').append(popoverMenu);
 
-    // 3. Click events
     $('#quick-force-reply-btn').on('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -136,7 +132,6 @@ jQuery(async () => {
         if (e.key === 'Escape' && popoverMenu) popoverMenu.hide();
     });
 
-    // 4. Hook into chat change events
     const ctx = SillyTavern.getContext();
     if (ctx && ctx.eventSource && ctx.eventTypes) {
         ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, updateUIVisibility);
