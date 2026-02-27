@@ -1,14 +1,14 @@
+import { Popper } from '../../../../lib.js';
+
 /**
  * Quick Force Reply
  * Copyright (C) 2026 Bucko
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
-*/
+ * Licensed under AGPL-3.0
+ */
 
-let popoverMenu;
+let popper = null;
+let isOpen = false;
+let popoverMenu = null;
 
 function getGroupMembers() {
     const ctx = SillyTavern.getContext();
@@ -31,10 +31,23 @@ function getGroupMembers() {
     return members;
 }
 
+function toggleMenu() {
+    if (isOpen) {
+        closeMenu();
+    } else {
+        openMenu();
+    }
+}
+
 function openMenu() {
+    isOpen = true;
     const members = getGroupMembers();
     
-    // Clear out old data
+    if (!popoverMenu) {
+        popoverMenu = $('<div id="quick-force-reply-popover"></div>');
+        $('body').append(popoverMenu);
+    }
+
     popoverMenu.empty();
     popoverMenu.append('<div class="qfr-header">Force Reply</div>');
 
@@ -49,9 +62,7 @@ function openMenu() {
             </div>`);
 
             if (!member.disabled) {
-                row.on('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                row.on('click', () => {
                     forceReply(member.name);
                 });
             }
@@ -59,42 +70,28 @@ function openMenu() {
         });
     }
 
-    // --- DYNAMIC MOBILE-FRIENDLY POSITIONING ---
-    const btn = $('#quick-force-reply-btn')[0];
-    if (!btn) return; 
-    
-    const rect = btn.getBoundingClientRect(); 
-    
-    // Calculate distance from the bottom of the screen, plus a 10px gap
-    const bottomPos = window.innerHeight - rect.top + 10;
-    
-    // Calculate Left position, keeping it within screen bounds on mobile
-    let leftPos = rect.left;
-    if (leftPos + 250 > window.innerWidth) { 
-        leftPos = window.innerWidth - 260; 
-    }
-    leftPos = Math.max(10, leftPos); 
+    popoverMenu.css('display', 'flex');
 
-    popoverMenu.css({
-        bottom: bottomPos + 'px',
-        left: leftPos + 'px',
-        display: 'flex'
+    // THE MAGIC WE WERE MISSING: Letting Popper.js anchor it perfectly
+    popper = Popper.createPopper(document.getElementById('quick-force-reply-btn'), document.getElementById('quick-force-reply-popover'), {
+        placement: 'top-start',
     });
+    popper.update();
+}
 
-    // THE JSX MOBILE FIX: Wait 0ms before listening for clicks outside the menu
-    setTimeout(() => {
-        $(document).on('click.qfr touchstart.qfr', function closeOnOutsideClick(e) {
-            if (!$(e.target).closest('#quick-force-reply-popover').length && !$(e.target).closest('#quick-force-reply-btn').length) {
-                popoverMenu.hide();
-                $(document).off('click.qfr touchstart.qfr', closeOnOutsideClick);
-            }
-        });
-    }, 0);
+function closeMenu() {
+    isOpen = false;
+    if (popoverMenu) {
+        popoverMenu.css('display', 'none');
+    }
+    if (popper) {
+        popper.destroy();
+        popper = null;
+    }
 }
 
 function forceReply(characterName) {
-    popoverMenu.css('display', 'none');
-    $(document).off('click.qfr touchstart.qfr');
+    closeMenu();
     const ctx = SillyTavern.getContext();
     if (ctx && typeof ctx.executeSlashCommandsWithOptions === 'function') {
         ctx.executeSlashCommandsWithOptions(`/trigger "${characterName}"`);
@@ -109,12 +106,11 @@ function updateUIVisibility() {
         $('#quick-force-reply-btn').show();
     } else {
         $('#quick-force-reply-btn').hide();
-        if (popoverMenu) popoverMenu.hide();
+        closeMenu();
     }
 }
 
 jQuery(async () => {
-    // 1. Inject the button into the exact same area QuickPersona uses
     const btnHtml = `
     <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none; padding: 10px; opacity: 0.7; cursor: pointer;">
         <i class="fa-solid fa-users" style="font-size: 1.2em; pointer-events: none;"></i>
@@ -122,30 +118,24 @@ jQuery(async () => {
     
     $('#leftSendForm').append(btnHtml);
 
-    // 2. Create the Popover container
-    popoverMenu = $('<div id="quick-force-reply-popover"></div>');
-    $('body').append(popoverMenu);
+    // Main button click
+    $('#quick-force-reply-btn').on('click', () => {
+        toggleMenu();
+    });
 
-    // 3. Main button click event
-    $('#quick-force-reply-btn').on('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (popoverMenu.css('display') === 'flex') {
-            popoverMenu.css('display', 'none');
-            $(document).off('click.qfr touchstart.qfr');
-        } else {
-            openMenu();
+    // Exact click-outside logic from QuickPersona
+    $(document.body).on('click', (e) => {
+        if (isOpen && !e.target.closest('#quick-force-reply-popover') && !e.target.closest('#quick-force-reply-btn')) {
+            closeMenu();
         }
     });
 
     $(document).on('keydown', (e) => {
-        if (e.key === 'Escape' && popoverMenu) {
-            popoverMenu.hide();
-            $(document).off('click.qfr touchstart.qfr');
+        if (e.key === 'Escape' && isOpen) {
+            closeMenu();
         }
     });
 
-    // 4. Hook into chat change events
     const ctx = SillyTavern.getContext();
     if (ctx && ctx.eventSource && ctx.eventTypes) {
         ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, updateUIVisibility);
