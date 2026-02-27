@@ -18,4 +18,4 @@ SillyTavern 1.11.3 or higher.
 
 Works best in Group Chats using Manual reply mode.
 
-![image](https://github.com/SillyTavern/Extension-QuickPersona/assets/18619528/e747e264-f036-475f-b9cd-d46a4fb094de)
+![image](https://i.imgur.com/KNPSd5d.png)
