@@ -18,4 +18,4 @@ SillyTavern 1.11.3 or higher.
 
 Works best in Group Chats using Manual reply mode.
 
-![image](https://i.imgur.com/KNPSd5d.png)
+![image](https://i.imgur.com/ZHSNrkv.png)
