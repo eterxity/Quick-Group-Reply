@@ -72,7 +72,6 @@ function openMenu() {
 
     popoverMenu.css('display', 'flex');
 
-    // THE MAGIC WE WERE MISSING: Letting Popper.js anchor it perfectly
     popper = Popper.createPopper(document.getElementById('quick-force-reply-btn'), document.getElementById('quick-force-reply-popover'), {
         placement: 'top-start',
     });
@@ -111,9 +110,9 @@ function updateUIVisibility() {
 }
 
 jQuery(async () => {
-    const btnHtml = `
-    <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none; padding: 10px; opacity: 0.7; cursor: pointer;">
-        <i class="fa-solid fa-users" style="font-size: 1.2em; pointer-events: none;"></i>
+const btnHtml = `
+    <div id="quick-force-reply-btn" class="interactable" tabindex="0" title="Force Group Reply" style="display: none;">
+        <i class="fa-solid fa-users" style="pointer-events: none;"></i>
     </div>`;
     
     $('#leftSendForm').append(btnHtml);
@@ -123,7 +122,6 @@ jQuery(async () => {
         toggleMenu();
     });
 
-    // Exact click-outside logic from QuickPersona
     $(document.body).on('click', (e) => {
         if (isOpen && !e.target.closest('#quick-force-reply-popover') && !e.target.closest('#quick-force-reply-btn')) {
             closeMenu();
